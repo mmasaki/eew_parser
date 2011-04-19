@@ -692,8 +692,12 @@ AreaCord = {
 
   # 震央の位置
   def position
-    position = @fastcast[90, 10] 
-    position.insert(3, ".").insert(10, ".")
+    position = @fastcast[90, 10]
+    if position == "//// /////"
+      "不明又は未設定"
+    else
+      position.insert(3, ".").insert(10, ".")
+    end
   end
 
   # 震源の深さ(単位 km)
@@ -916,9 +920,9 @@ AreaCord = {
 
   # 地域毎の警報の判別、最大予測震度及び主要動到達予測時刻
   #   EBIがあればHashを格納したArrayを、なければnilを返します。Hashに格納されるkeyとvalueはそれぞれ次のようになっています。
-  #   :area_cord 地域コード
+  #   :area_cord 地域名称
   #   :intensity 最大予測震度
-  #   :arrival_time 予想到達時刻
+  #   :arrival_time 予想到達時刻のTimeオブジェクト。既に到達している場合はnil
   #   :warning 警報を含んでいればtrue、含んでいなければfalse、電文にこの項目が設定されていなければnil
   #   :arrival 既に到達していればtrue、そうでなければfalse、電文にこの項目が設定されていなければnil
   def ebi
@@ -927,7 +931,7 @@ AreaCord = {
     i = 139
     while i + 20 < @fastcast.size
       local = {}
-      local[:area_cord] = AreaCord[@fastcast[i, 3].to_i] # 地域コード
+      local[:area_cord] = AreaCord[@fastcast[i, 3].to_i] # 地域名称
       if @fastcast[i+7, 2] == "//"
         local[:intensity] = "#{to_seismic_intensity(@fastcast[i+5, 2])}以上" # 最大予測震度
       elsif @fastcast[i+5, 2] == @fastcast[i+7, 2]
