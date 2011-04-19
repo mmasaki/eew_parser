@@ -7,7 +7,18 @@
 # 高度利用者向け緊急地震速報コード電文フォーマットを扱う為のライブラリです。
 # http://eew.mizar.jp/excodeformat を元に作成しました。
 #
-class EEWPaser
+#   str = <<EOS
+#   37 03 00 110415005029 C11
+#   110415004944
+#   ND20110415005001 NCN001 JD////////////// JN///
+#   189 N430 E1466 070 41 02 RK66204 RT10/// RC/////
+#   9999=
+#   EOS
+#
+#   eew = EEWParser.new(str)
+#   puts "最大予測震度: #{fc.seismic_intensity}"
+#
+class EEWParser
 # 震央地名コードをkey,震央地名称をvalueとするHash
 EpicenterCord = {
 0 => "不明",
@@ -967,7 +978,7 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
 9999=
 EOS
 p str
-fc = EEWPaser.new(str)
+fc = EEWParser.new(str)
 
 puts <<FC
 電文種別コード: #{fc.type}
