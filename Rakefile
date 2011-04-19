@@ -14,9 +14,9 @@ Jeweler::Tasks.new do |gem|
   # gem is a Gem::Specification... see http://docs.rubygems.org/read/chapter/20 for more options
   gem.name = "eew_parser"
   gem.homepage = "http://github.com/Glasssaga/eew_parser"
-  gem.license = "MIT"
-  gem.summary = %Q{TODO: one-line summary of your gem}
-  gem.description = %Q{TODO: longer description of your gem}
+  gem.license = "NYSL Version 0.9982"
+  gem.summary = %Q{parser for Earthquake Early Warning}
+  gem.description = %Q{parser for Earthquake Early Warning}
   gem.email = "glass.saga@gmail.com"
   gem.authors = ["Glass_saga"]
   # Include your dependencies below. Runtime dependencies are required when using your gem,
@@ -25,22 +25,6 @@ Jeweler::Tasks.new do |gem|
   #  gem.add_development_dependency 'rspec', '> 1.2.3'
 end
 Jeweler::RubygemsDotOrgTasks.new
-
-require 'rake/testtask'
-Rake::TestTask.new(:test) do |test|
-  test.libs << 'lib' << 'test'
-  test.pattern = 'test/**/test_*.rb'
-  test.verbose = true
-end
-
-require 'rcov/rcovtask'
-Rcov::RcovTask.new do |test|
-  test.libs << 'test'
-  test.pattern = 'test/**/test_*.rb'
-  test.verbose = true
-end
-
-task :default => :test
 
 require 'rake/rdoctask'
 Rake::RDocTask.new do |rdoc|
