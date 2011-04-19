@@ -6,7 +6,7 @@ http://eew.mizar.jp/excodeformat を元に作成しました。
 
 == インストール
 
-> gem install eew_parser
+ gem install eew_parser
 
 でインストールできます。
 
