@@ -4,6 +4,12 @@
 http://eew.mizar.jp/excodeformat を元に作成しました。
 詳しくは http://glasssaga.dip.jp/eew_parser_doc/EEWPaser.html を参照して下さい。
 
+== インストール
+
+> gem install eew_parser
+
+でインストールできます。
+
 == Copyright
 
 Copyright (c) 2011 Glass_saga. See LICENSE.txt for

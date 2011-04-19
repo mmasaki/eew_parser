@@ -23,6 +23,7 @@ Gem::Specification.new do |s|
     "README.rdoc",
     "Rakefile",
     "VERSION",
+    "eew_parser.gemspec",
     "lib/eew_parser.rb"
   ]
   s.homepage = %q{http://github.com/Glasssaga/eew_parser}
