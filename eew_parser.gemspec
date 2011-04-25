@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{eew_parser}
-  s.version = "0.1.1"
+  s.version = "0.1.2"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Glass_saga"]
-  s.date = %q{2011-04-19}
+  s.date = %q{2011-04-25}
   s.description = %q{parser for Earthquake Early Warning}
   s.email = %q{glass.saga@gmail.com}
   s.extra_rdoc_files = [
