@@ -922,7 +922,7 @@ AreaCord = {
 
   # 地域毎の警報の判別、最大予測震度及び主要動到達予測時刻
   #   EBIがあればHashを格納したArrayを、なければnilを返します。Hashに格納されるkeyとvalueはそれぞれ次のようになっています。
-  #   :area_cord 地域名称
+  #   :area_name 地域名称
   #   :intensity 最大予測震度
   #   :arrival_time 予想到達時刻のTimeオブジェクト。既に到達している場合はnil
   #   :warning 警報を含んでいればtrue、含んでいなければfalse、電文にこの項目が設定されていなければnil
@@ -933,7 +933,7 @@ AreaCord = {
     i = 139
     while i + 20 < @fastcast.size
       local = {}
-      local[:area_cord] = AreaCord[@fastcast[i, 3].to_i] # 地域名称
+      local[:area_name] = AreaCord[@fastcast[i, 3].to_i] # 地域名称
       if @fastcast[i+7, 2] == "//"
         local[:intensity] = "#{to_seismic_intensity(@fastcast[i+5, 2])}以上" # 最大予測震度
       elsif @fastcast[i+5, 2] == @fastcast[i+7, 2]
