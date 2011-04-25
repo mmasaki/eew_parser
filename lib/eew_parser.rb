@@ -685,6 +685,8 @@ AreaCord = {
     @fastcast[60, 2].to_i
   end
 
+  alias :revision :number
+
   # 震央の名称
   def epicenter
     EpicenterCord[@fastcast[86, 3].to_i]
@@ -899,7 +901,7 @@ AreaCord = {
   end
 
   # 最大予測震度の変化の理由
-  def reason_of_chaage
+  def reason_of_change
     case @fastcast[130]
     when "0"
       "変化無し"
