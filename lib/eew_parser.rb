@@ -576,6 +576,8 @@ AreaCord = {
 805 => "沖縄県石垣島",
 806 => "沖縄県与那国島",
 807 => "沖縄県西表島"}
+
+  class Error < StandardError; end
  
   # 引数には緊急地震速報の電文を与えます。
   def initialize(str)
@@ -593,6 +595,8 @@ AreaCord = {
       "マグニチュード、最大予測震度及び主要動到達予測時刻の高度利用者向け緊急地震速報(グリッドサーチ法、EPOS自動処理手法)"
     when "39"
       "キャンセル報"
+    else
+      raise Error, "電文の形式が不正です(電文種別コード)"
     end
   end
 
@@ -611,6 +615,8 @@ AreaCord = {
       "福岡"
     when "06"
       "沖縄"
+    else
+      raise Error, "電文の形式が不正です(発信官署)"
     end
   end
 
@@ -629,6 +635,8 @@ AreaCord = {
       "参考情報またはテキスト"
     when "30"
       "コード部のみの配信試験"
+    else
+      raise Error, "電文の形式が不正です(識別符)"
     end
   end
 
@@ -639,12 +647,21 @@ AreaCord = {
 
   # 電文がこの電文を含め何通あるか(Integer)
   def number_of_telegram
-    @fastcast[23].to_i
+    number_of_telegram = @fastcast[23]
+    raise Error, "電文の形式が不正です" if number_of_telegram =~ /[^\d]/
+    number_of_telegram.to_i
   end
 
   # コードが続くかどうか
   def continue?
-    @fastcast[24] == "1"
+    case @fastcast[24]
+    when "1"
+      true
+    when "0"
+      false
+    else
+      raise Error, "電文の形式が不正です"
+    end
   end
 
   # 地震発生時刻もしくは地震検知時刻のTimeオブジェクトを返します。
@@ -654,7 +671,9 @@ AreaCord = {
   
   # 地震識別番号(String)
   def id
-    @fastcast[41, 14]
+    id = @fastcast[41, 14]
+    raise Error, "電文の形式が不正です(地震識別番号)" if id =~ /[^\d]/
+    id
   end
 
   # 発表状況(訂正等)の指示
@@ -672,24 +691,37 @@ AreaCord = {
       "最終の高度利用者向け緊急地震速報"
     when "/"
       "未設定"
+    else
+      raise Error, "電文の形式が不正です"     
     end
   end
 
   # 最終報であればtrueを、そうでなければfalseを返します。
   def final?
-    @fastcast[59] == "9"
+    case @fastcast[59]
+    when "9"
+      true
+    when "0", "6", "7", "8", "/"
+      false
+    else
+      raise Error, "電文の形式が不正です"
+    end
   end
 
   # 発表する高度利用者向け緊急地震速報の番号(地震単位での通番)(Integer)
   def number
-    @fastcast[60, 2].to_i
+    number = @fastcast[60, 2]
+    raise Error, "電文の形式が不正です(高度利用者向け緊急地震速報の番号)" if number =~ /[^\d]/
+    number.to_i
   end
 
   alias :revision :number
 
   # 震央の名称
   def epicenter
-    EpicenterCord[@fastcast[86, 3].to_i]
+    key = @fastcast[86, 3]
+    raise Error, "電文の形式が不正です(震央の名称)" if key =~ /[^\d]/
+    EpicenterCord[key.to_i]
   end
 
   # 震央の位置
@@ -698,16 +730,19 @@ AreaCord = {
     if position == "//// /////"
       "不明又は未設定"
     else
+      raise Error, "電文の形式が不正です(震央の位置)" if position =~ /[^\d|\s|N|E]/
       position.insert(3, ".").insert(10, ".")
     end
   end
 
   # 震源の深さ(単位 km)
   def depth
-    if @fastcast[101, 3] == "///"
+    depth = @fastcast[101, 3]
+    if depth == "///"
       "不明又は未設定"
     else
-      @fastcast[101, 3].to_i
+      raise Error, "電文の形式が不正です(震源の深さ)" if depth =~ /[^\d]/
+      depth.to_i
     end
   end
 
@@ -715,10 +750,12 @@ AreaCord = {
   #   マグニチュードが不明又は未設定である場合は"不明又は未設定"を返します。
   #   そうでなければ、マグニチュードをFloatで返します。
   def magnitude
-    if @fastcast[105, 2] == "//"
+    magnitude = @fastcast[105, 2]
+    if magnitude == "//"
       "不明又は未設定"
     else
-      (@fastcast[105] + "." + @fastcast[106]).to_f
+      raise Error, "電文の形式が不正です(マグニチュード)" if magnitude =~ /[^\d]/
+      (magnitude[0] + "." + magnitude[1]).to_f
     end
   end
 
@@ -745,12 +782,16 @@ AreaCord = {
       "6強"
     when "07"
       "7"
+    else
+      raise
     end
   end
 
   # 最大予測震度
   def seismic_intensity
     to_seismic_intensity(@fastcast[108, 2]) 
+  rescue RuntimeError
+    raise Error, "電文の形式が不正です(最大予測震度)" 
   end
 
   # 震央の確からしさ
@@ -776,6 +817,8 @@ AreaCord = {
       "予備"
     when "/"
       "不明又は未設定"
+    else
+      raise Error, "電文の形式が不正です(震央の確からしさ)"
     end    
   end
 
@@ -802,6 +845,8 @@ AreaCord = {
       "予備"
     when "/"
       "不明又は未設定"
+    else
+      raise Error, "電文の形式が不正です(震源の深さの確からしさ)"
     end 
   end
 
@@ -828,6 +873,8 @@ AreaCord = {
       "予備"
     when "/"
       "不明又は未設定"
+    else
+      raise Error, "電文の形式が不正です(マグニチュードの確からしさ)"
     end
   end
 
@@ -844,8 +891,10 @@ AreaCord = {
       "グリッドサーチ法(5点)[気象庁データ]"
     when "/"
       "不明又は未設定"
-    else
+    when "5".."9"
       "未定義"
+    else
+      raise Error, "電文の形式が不正です(震央の確からしさ[気象庁の部内システムでの利用])"
     end
   end
 
@@ -862,8 +911,10 @@ AreaCord = {
       "グリッドサーチ法(5点)[気象庁データ]"
     when "/"
       "不明又は未設定"
-    else
+    when "5".."9"
       "未定義"
+    else
+      raise Error, "電文の形式が不正です(震源の深さの確からしさ[気象庁の部内システムでの利用])"
     end
   end
 
@@ -876,14 +927,23 @@ AreaCord = {
       "海域"
     when "/"
       "不明又は未設定"
-    else
+    when "2".."9"
       "未定義"
+    else
+      raise Error, "電文の形式が不正です(震央位置の海陸判定)"
     end
   end
 
   # 警報を含む内容であればtrue、そうでなければfalse
   def warning?
-    @fastcast[122] == "1"
+    case @fastcast[122]
+    when "0", "/", "2".."9"
+      false
+    when "1"
+      true
+    else
+      raise Error, "電文の形式が不正です(警報の判別)"
+    end
   end
 
   # 最大予測震度の変化
@@ -895,8 +955,12 @@ AreaCord = {
       "最大予測震度が1.0以上大きくなった"
     when "2"
       "最大予測震度が1.0以上小さくなった"
-    else
+    when "3".."9"
       "未定義"
+    when "/"
+      "不明又は未設定"  
+    else
+      raise Error, "電文の形式が不正です(最大予測震度の変化)"
     end
   end
 
@@ -915,8 +979,10 @@ AreaCord = {
       "震源の深さが変化したため"
     when "/"
       "不明又は未設定"
-    else
+    when "5".."9"
       "未定義"
+    else
+      raise Error, "電文の形式が不正です(最大予測震度の変化の理由)"
     end
   end
 
@@ -1010,7 +1076,7 @@ puts <<FC
 震央位置の海陸判定: #{fc.land_or_sea}
 警報を含む内容かどうか: #{fc.warning?}
 最大予測震度の変化: #{fc.change}
-最大予測震度の変化の理由: #{fc.reason_of_chaage}
+最大予測震度の変化の理由: #{fc.reason_of_change}
 FC
 fc.ebi.each do |local|
   puts "地域コード: #{local[:area_cord]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{local[:arrival_time]}"
