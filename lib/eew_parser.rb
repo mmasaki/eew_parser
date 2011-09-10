@@ -582,6 +582,57 @@ AreaCord = {
   # 引数には緊急地震速報の電文を与えます。
   def initialize(str)
     @fastcast = str
+    @fastcast.freeze
+    raise Error, "電文の形式が不正です" if @fastcast.size < 134
+  end
+
+  attr_reader :fastcast
+
+  def to_s
+    @fastcast
+  end
+
+  def to_hash
+    hash = {}
+    hash[:type] = self.type
+    hash[:from] = self.from
+    hash[:drill_type] = self.drill_type
+    hash[:report_time] = self.report_time
+    hash[:number_of_telegram] = self.number_of_telegram
+    hash[:continue?] = self.continue?
+    hash[:earthquake_time] = self.earthquake_time
+    hash[:id] = self.id
+    hash[:status] = self.status
+    hash[:final?] = self.final?
+    hash[:number] = self.number
+    hash[:epicenter] = self.epicenter
+    hash[:position] = self.position
+    hash[:depth] = self.depth
+    hash[:magnitude] = self.magnitude
+    hash[:seismic_intensity] = self.seismic_intensity
+    hash[:probability_of_position] = self.probability_of_position
+    hash[:probability_of_depth] = self.probability_of_depth
+    hash[:probability_of_magnitude] = self.probability_of_magnitude
+    hash[:probability_of_position_jma] = self.probability_of_position_jma
+    hash[:probability_of_depth_jma] = self.probability_of_depth_jma
+    hash[:land_or_sea] = self.land_or_sea
+    hash[:warning?] = self.warning?
+    hash[:change] = self.change
+    hash[:reason_of_change] = self.reason_of_change
+    hash[:ebi] = self.ebi
+    hash
+  end
+
+  def inspect
+    "#<EEWParser:#{self.id}>"
+  end
+
+  def ==(other)
+    self.fastcast == other.fastcast  
+  end
+
+  def <=>(other)
+    self.id.to_i <=> other.id.to_i
   end
 
   # 電文種別コード
@@ -783,14 +834,14 @@ AreaCord = {
     when "07"
       "7"
     else
-      raise
+      raise Error, "電文の形式が不正です(震度)"
     end
   end
 
   # 最大予測震度
   def seismic_intensity
     to_seismic_intensity(@fastcast[108, 2]) 
-  rescue RuntimeError
+  rescue Error
     raise Error, "電文の形式が不正です(最大予測震度)" 
   end
 
@@ -987,7 +1038,7 @@ AreaCord = {
   end
 
   # 地域毎の警報の判別、最大予測震度及び主要動到達予測時刻
-  #   EBIがあればHashを格納したArrayを、なければnilを返します。Hashに格納されるkeyとvalueはそれぞれ次のようになっています。
+  #   EBIがあればHashを格納したArrayを、なければ空のArrayを返します。Hashに格納されるkeyとvalueはそれぞれ次のようになっています。
   #   :area_name 地域名称
   #   :intensity 最大予測震度
   #   :arrival_time 予想到達時刻のTimeオブジェクト。既に到達している場合はnil
@@ -1000,6 +1051,7 @@ AreaCord = {
     while i + 20 < @fastcast.size
       local = {}
       local[:area_name] = AreaCord[@fastcast[i, 3].to_i] # 地域名称
+      raise Error, "電文の形式が不正でです(地域名称[EBI])" unless local[:area_name]
       if @fastcast[i+7, 2] == "//"
         local[:intensity] = "#{to_seismic_intensity(@fastcast[i+5, 2])}以上" # 最大予測震度
       elsif @fastcast[i+5, 2] == @fastcast[i+7, 2]
@@ -1017,16 +1069,20 @@ AreaCord = {
         local[:warning] = false # 警報を含むかどうか
       when "1"
         local[:warning] = true
-      else
+      when "/", "2".."9"
         local[:warning] = nil
+      else
+        raise Error, "電文の形式が不正でです(警報の判別[EBI])"
       end
       case @fastcast[i+18]
       when "0"
         local[:arrival] = false # 既に到達しているかどうか
       when "1"
         local[:arrival] = true
-      else
+      when "/", "2".."9"
         local[:arrival] = nil
+      else
+        raise Error, "電文の形式が不正でです(主要動の到達予測状況[EBI])"
       end
       data << local
       i += 20
@@ -1036,7 +1092,7 @@ AreaCord = {
 end
 
 if __FILE__ == $PROGRAM_NAME # テスト
-str = <<EOS #テスト用の電文
+  str = <<EOS #テスト用の電文
 37 03 00 110415233453 C11
 110415233416
 ND20110415233435 NCN005 JD////////////// JN///
@@ -1049,10 +1105,13 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
 330 S0403 233454 00 222 S0403 233455 00
 9999=
 EOS
-p str
-fc = EEWParser.new(str)
-
-puts <<FC
+  
+  fc = EEWParser.new(str)
+  p fc
+  p fc.fastcast
+  p fc.to_hash
+  
+  puts <<FC
 電文種別コード: #{fc.type}
 発信官署: #{fc.from}
 訓練等の識別符: #{fc.drill_type}
@@ -1078,8 +1137,8 @@ puts <<FC
 最大予測震度の変化: #{fc.change}
 最大予測震度の変化の理由: #{fc.reason_of_change}
 FC
-fc.ebi.each do |local|
-  puts "地域コード: #{local[:area_cord]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{local[:arrival_time]}"
-  puts "警報を含むかどうか: #{local[:warning]} 既に到達しているかどうか: #{local[:arrival]}"
-end
+  fc.ebi.each do |local|
+    puts "地域コード: #{local[:area_cord]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{local[:arrival_time]}"
+    puts "警報を含むかどうか: #{local[:warning]} 既に到達しているかどうか: #{local[:arrival]}"
+  end
 end
