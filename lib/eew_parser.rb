@@ -588,10 +588,12 @@ AreaCord = {
 
   attr_reader :fastcast
 
+  # initializeに与えられた電文を返します。
   def to_s
     @fastcast
   end
 
+  # 電文を解析した結果をHashで返します。
   def to_hash
     hash = {}
     hash[:type] = self.type
