@@ -1052,7 +1052,8 @@ AreaCord = {
     i = 139
     while i + 20 < @fastcast.size
       local = {}
-      local[:area_name] = AreaCord[@fastcast[i, 3].to_i] # 地域名称
+      local[:area_cord] = @fastcast[i, 3].to_i
+      local[:area_name] = AreaCord[local[:area_cord]] # 地域名称
       raise Error, "電文の形式が不正でです(地域名称[EBI])" unless local[:area_name]
       if @fastcast[i+7, 2] == "//"
         local[:intensity] = "#{to_seismic_intensity(@fastcast[i+5, 2])}以上" # 最大予測震度
@@ -1140,7 +1141,7 @@ EOS
 最大予測震度の変化の理由: #{fc.reason_of_change}
 FC
   fc.ebi.each do |local|
-    puts "地域コード: #{local[:area_cord]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{local[:arrival_time]}"
+    puts "地域コード: #{local[:area_cord]} 地域名: #{local[:area_name]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{local[:arrival_time]}"
     puts "警報を含むかどうか: #{local[:warning]} 既に到達しているかどうか: #{local[:arrival]}"
   end
 end
