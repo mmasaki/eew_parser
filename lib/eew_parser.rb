@@ -22,11 +22,12 @@ require_relative "area_code"
 #   puts "最大予測震度: #{fc.seismic_intensity}"
 #
 module EEW
-  class Error < StandardError; end
-
   class Parser
+    class Error < StandardError; end
+
     # 引数には緊急地震速報の電文を与えます。
     def initialize(str)
+      raise ArgumentError unless str.is_a?(String)
       @fastcast = str.dup
       @fastcast.freeze
       raise Error, "電文の形式が不正です" if @fastcast.size < 134
@@ -39,48 +40,69 @@ module EEW
       @fastcast
     end
 
+    def print
+      str = <<-EOS
+電文種別: #{self.type}
+発信官署: #{self.from}
+訓練等の識別符: #{self.drill_type}
+電文の発表時刻: #{self.report_time}
+電文がこの電文を含め何通あるか: #{self.number_of_telegram}
+コードが続くかどうか: #{self.continue?}
+地震発生時刻もしくは地震検知時刻: #{self.earthquake_time}
+地震識別番号: #{self.id}
+発表状況(訂正等)の指示: #{self.status}
+発表する高度利用者向け緊急地震速報の番号(地震単位での通番): #{self.number}
+震央地名: #{self.epicenter}
+震央の位置: #{self.position}
+震源の深さ(単位 km)(不明・未設定時,キャンセル時:///): #{self.depth}
+マグニチュード(不明・未設定時、キャンセル時:///): #{self.magnitude}
+最大予測震度(不明・未設定時、キャンセル時://): #{self.seismic_intensity}
+震央の確からしさ: #{self.probability_of_position}
+震源の深さの確からしさ: #{self.probability_of_depth}
+マグニチュードの確からしさ: #{self.probability_of_magnitude}
+震央の確からしさ(気象庁の部内システムでの利用): #{self.probability_of_position_jma}
+震源の深さの確からしさ(気象庁の部内システムでの利用): #{self.probability_of_depth_jma}
+震央位置の海陸判定: #{self.land_or_sea}
+警報を含む内容かどうか: #{self.warning?}
+最大予測震度の変化: #{self.change}
+最大予測震度の変化の理由: #{self.reason_of_change}
+      EOS
+
+      unless self.ebi.empty?
+        str << "\n地域毎の警報の判別、最大予測震度及び主要動到達予測時刻(EBI):"
+        self.ebi.each do |local|
+          str << "地域名: #{local[:area_name]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{local[:arrival_time]} 警報を含むかどうか: #{local[:warning]} 既に到達しているかどうか: #{local[:arrival]}\n"
+        end
+      end
+
+      return str
+    end
+
+    Attributes = [
+      :type, :from, :drill_type, :report_time, :number_of_telegram, :continue?, :earthquake_time, :id, :status, :final?, :number, :epicenter, :position, :depth,
+      :magnitude, :seismic_intensity, :probability_of_position_jma, :probability_of_depth, :probability_of_magnitude, :probability_of_position, :probability_of_depth_jma,
+      :land_or_sea, :warning?, :change, :reason_of_change, :ebi
+    ].freeze
+
     # 電文を解析した結果をHashで返します。
     def to_hash
       hash = {}
-      hash[:type] = self.type
-      hash[:from] = self.from
-      hash[:drill_type] = self.drill_type
-      hash[:report_time] = self.report_time
-      hash[:number_of_telegram] = self.number_of_telegram
-      hash[:continue?] = self.continue?
-      hash[:earthquake_time] = self.earthquake_time
-      hash[:id] = self.id
-      hash[:status] = self.status
-      hash[:final?] = self.final?
-      hash[:number] = self.number
-      hash[:epicenter] = self.epicenter
-      hash[:position] = self.position
-      hash[:depth] = self.depth
-      hash[:magnitude] = self.magnitude
-      hash[:seismic_intensity] = self.seismic_intensity
-      hash[:probability_of_position] = self.probability_of_position
-      hash[:probability_of_depth] = self.probability_of_depth
-      hash[:probability_of_magnitude] = self.probability_of_magnitude
-      hash[:probability_of_position_jma] = self.probability_of_position_jma
-      hash[:probability_of_depth_jma] = self.probability_of_depth_jma
-      hash[:land_or_sea] = self.land_or_sea
-      hash[:warning?] = self.warning?
-      hash[:change] = self.change
-      hash[:reason_of_change] = self.reason_of_change
-      hash[:ebi] = self.ebi
-      hash
+      Attributes.each do |attribute|
+        hash[attribute] = __send__(attribute)
+      end
+      return hash
     end
 
     def inspect
-      "#<EEWParser:#{self.id}>"
+      "#<EEWParser:#{id}>"
     end
 
     def ==(other)
-      self.fastcast == other.fastcast  
+      fastcast == other.fastcast  
     end
 
     def <=>(other)
-      self.id.to_i <=> other.id.to_i
+      Integer(id) <=> Integer(id)
     end
 
     # 電文種別コード
