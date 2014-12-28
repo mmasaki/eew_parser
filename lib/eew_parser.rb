@@ -30,7 +30,7 @@ module EEW
       raise ArgumentError unless str.is_a?(String)
       @fastcast = str.dup
       @fastcast.freeze
-      raise Error, "電文の形式が不正です" if @fastcast.size < 134
+      raise Error, "電文の形式が不正です" if @fastcast.size < 135
     end
 
     attr_reader :fastcast
