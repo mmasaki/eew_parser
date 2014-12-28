@@ -4,7 +4,7 @@
 
 高度利用者向け緊急地震速報コード電文フォーマットを扱う為のライブラリです。
 http://eew.mizar.jp/excodeformat を元に作成しました。
-詳しくは http://glasssaga.dip.jp/eew_parser_doc/EEWParser.html を参照して下さい。
+詳しくは http://www.rubydoc.info/gems/eew_parser を参照して下さい。
 
 ```ruby
 str = <<EOS
