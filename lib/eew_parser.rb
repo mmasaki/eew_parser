@@ -583,7 +583,7 @@ AreaCord = {
  
   # 引数には緊急地震速報の電文を与えます。
   def initialize(str)
-    @fastcast = str
+    @fastcast = str.dup
     @fastcast.freeze
     raise Error, "電文の形式が不正です" if @fastcast.size < 134
   end
