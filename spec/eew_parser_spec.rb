@@ -136,4 +136,16 @@ ND20110415005001 NCN001 JD////////////// JN///
       end
     end
   end
+
+  context "WNIが生成する不正な値を無視(RKnnnn)" do
+    let(:invalid) do
+      "37 03 00 141215195526 C11\n141215195426\nND20141215195438 NCN903 JD////////////// JN003\n309 N350 E1403 070 38 02 RK77604 RT10/// RC0////\n9999="
+    end
+
+    it "doesn't raise EEW::Parser::Error" do
+      expect {
+        EEW::Parser.new(invalid)
+      }.not_to raise_error
+    end
+  end
 end
