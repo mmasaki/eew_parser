@@ -101,4 +101,39 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
       expect(first[:warning]).to be true
     end
   end
+
+  context "不正な電文" do
+    context "nil" do
+      it "raises ArgumentError" do
+        expect {
+          EEW::Parser.new(nil)
+        }.to raise_error(ArgumentError)
+      end
+    end
+
+    context "空文字列" do
+      it "raises EEW::Parser::Error" do
+        expect {
+          EEW::Parser.new("")
+        }.to raise_error(EEW::Parser::Error)
+      end
+    end
+
+    context"途中で欠けている" do
+      let(:invalid) do # 途中で欠けた電文
+        <<-EOS
+37 03 00 110415005029 C11
+110415004944
+ND20110415005001 NCN001 JD////////////// JN///
+189 N430 E1466 070 41 02 RK66204 RT10/// RC////
+        EOS
+      end
+
+      it "raises EEW::Parser::Error" do
+        expect {
+          EEW::Parser.new(invalid)
+        }.to raise_error(EEW::Parser::Error)
+      end
+    end
+  end
 end
