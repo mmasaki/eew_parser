@@ -40,6 +40,7 @@ module EEW
       @fastcast
     end
 
+    # 緊急地震速報の内容をテキストで出力します。
     def print
       str = <<-EOS
 電文種別: #{self.type}

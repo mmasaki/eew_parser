@@ -23,6 +23,5 @@ http://eew.mizar.jp/excodeformat を元に作成しました。
 
 == Copyright
 
-Copyright (c) 2011 Glass_saga. See LICENSE.txt for
+Copyright (c) 2014 Masaki Matsushita. See LICENSE.txt for
 further details.
-
