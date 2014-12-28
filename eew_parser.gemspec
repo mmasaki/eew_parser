@@ -5,7 +5,7 @@ Gem::Specification.new do |spec|
   spec.email         = ["glass.saga@gmail.com"]
   spec.summary       = %q{Parser for Earthquake Early Warning from JMA}
   spec.description   = %q{Parser for Earthquake Early Warning from JMA}
-  spec.homepage      = %q{httpp://github.com/Glasssaga/eew_parser}
+  spec.homepage      = %q{https://github.com/Glasssaga/eew_parser}
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0")
