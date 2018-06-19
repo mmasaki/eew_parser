@@ -67,6 +67,8 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
 
   its(:status) { is_expected.to eq("通常発表") }
 
+  it { is_expected.to be_normal }
+
   it { is_expected.not_to be_first }
 
   it { is_expected.not_to be_final }
@@ -83,15 +85,17 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
 
   its(:seismic_intensity) { is_expected.to eq("6強") }
 
-  its(:probability_of_position) { is_expected.to eq("防災科研システム(5点以上)[防災科学技術研究所データ]") }
+  its(:probability_of_position) { is_expected.to eq("防災科研システム(5点以上)[防災科研Hi-netデータ]") }
 
-  its(:probability_of_depth) { is_expected.to eq("防災科研システム(5点以上)[防災科学技術研究所データ]") }
+  its(:probability_of_depth) { is_expected.to eq("防災科研システム(5点以上)[防災科研Hi-netデータ]") }
 
-  its(:probability_of_magnitude) { is_expected.to eq("全点P相(最大5点)[気象庁データ]") }
+  its(:probability_of_magnitude) { is_expected.to eq("全点P相") }
 
-  its(:probability_of_position_jma) { is_expected.to eq("テリトリー法(2点)[気象庁データ]") }
+  its(:observation_points_of_magnitude) { is_expected.to eq("2点") }
 
-  its(:probability_of_depth_jma) { is_expected.to eq("グリッドサーチ法(5点)[気象庁データ]") }
+  its(:probability_of_position_jma) { is_expected.to eq("2点") }
+
+  its(:probability_of_depth_jma) { is_expected.to eq("IPF法(5点以上)") }
 
   its(:land_or_sea) { is_expected.to eq("陸域") }
 
@@ -158,10 +162,25 @@ ND20110415005001 NCN001 JD////////////// JN///
       "37 03 00 141215195526 C11\n141215195426\nND20141215195438 NCN903 JD////////////// JN003\n309 N350 E1403 070 38 02 RK77604 RT10/// RC0////\n9999="
     end
 
-    it "doesn't raise EEW::Parser::Error" do
+    it "can be verified" do
       expect {
-        EEW::Parser.new(invalid)
+        eew = EEW::Parser.new(invalid)
+        eew.verify
       }.not_to raise_error
+    end
+  end
+
+  context "南緯と西経" do
+    let(:sw) do
+      "37 03 00 141215195526 C11\n141215195426\nND20141215195438 NCN903 JD////////////// JN003\n309 S350 W1403 070 38 02 RK77604 RT10/// RC0////\n9999="
+    end
+
+    it "can be verified" do
+      eew = nil
+      expect {
+        eew = EEW::Parser.new(sw)
+      }.not_to raise_error
+      expect(eew.position).to eq("S35.0 W140.3")
     end
   end
 end

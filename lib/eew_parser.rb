@@ -46,41 +46,46 @@ module EEW
 
     # 緊急地震速報の内容をテキストで出力します。
     def print
-      str = <<-EOS
-電文種別: #{self.type}
-発信官署: #{self.from}
-訓練等の識別符: #{self.drill_type}
-電文の発表時刻: #{self.report_time}
-電文がこの電文を含め何通あるか: #{self.number_of_telegram}
-コードが続くかどうか: #{self.continue?}
-地震発生時刻もしくは地震検知時刻: #{self.earthquake_time}
-地震識別番号: #{self.id}
-発表状況(訂正等)の指示: #{self.status}
-発表する高度利用者向け緊急地震速報の番号(地震単位での通番): #{self.number}
-震央地名: #{self.epicenter}
-震央の位置: #{self.position}
-震源の深さ(単位 km)(不明・未設定時,キャンセル時:///): #{self.depth}
-マグニチュード(不明・未設定時、キャンセル時:///): #{self.magnitude}
-最大予測震度(不明・未設定時、キャンセル時://): #{self.seismic_intensity}
-震央の確からしさ: #{self.probability_of_position}
-震源の深さの確からしさ: #{self.probability_of_depth}
-マグニチュードの確からしさ: #{self.probability_of_magnitude}
-震央の確からしさ(気象庁の部内システムでの利用): #{self.probability_of_position_jma}
-震源の深さの確からしさ(気象庁の部内システムでの利用): #{self.probability_of_depth_jma}
-震央位置の海陸判定: #{self.land_or_sea}
-警報を含む内容かどうか: #{self.warning?}
-最大予測震度の変化: #{self.change}
-最大予測震度の変化の理由: #{self.reason_of_change}
+      return @print.dup if @print
+
+      @print = <<-EOS
+緊急地震速報 (第#{number}報)
+電文種別: #{type}
+発信官署: #{from}
+訓練等の識別符: #{drill_type}
+電文の発表時刻: #{report_time.strftime("%F %T")}
+電文がこの電文を含め何通あるか: #{number_of_telegram}
+コードが続くかどうか: #{continue?}
+地震発生時刻もしくは地震検知時刻: #{earthquake_time.strftime("%F %T")}
+地震識別番号: #{id}
+発表状況(訂正等)の指示: #{status}
+発表する高度利用者向け緊急地震速報の番号(地震単位での通番): #{number}
+震央地名: #{epicenter}
+震央の位置: #{position}
+震源の深さ(単位 km)(不明・未設定時,キャンセル時:///): #{depth}
+マグニチュード(不明・未設定時、キャンセル時:///): #{magnitude}
+最大予測震度(不明・未設定時、キャンセル時://): #{seismic_intensity}
+震央の確からしさ: #{probability_of_position}
+震源の深さの確からしさ: #{probability_of_depth}
+マグニチュードの確からしさ: #{probability_of_magnitude}
+震央の確からしさ(気象庁の部内システムでの利用): #{probability_of_position_jma}
+震源の深さの確からしさ(気象庁の部内システムでの利用): #{probability_of_depth_jma}
+震央位置の海陸判定: #{land_or_sea}
+警報を含む内容かどうか: #{warning?}
+最大予測震度の変化: #{change}
+最大予測震度の変化の理由: #{reason_of_change}
       EOS
 
-      unless self.ebi.empty?
-        str << "\n地域毎の警報の判別、最大予測震度及び主要動到達予測時刻(EBI):"
-        self.ebi.each do |local|
-          str << "地域名: #{local[:area_name]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{local[:arrival_time]} 警報を含むかどうか: #{local[:warning]} 既に到達しているかどうか: #{local[:arrival]}\n"
+      if has_ebi?
+        @print << "\n地域毎の警報の判別、最大予測震度及び主要動到達予測時刻(EBI):\n"
+        ebi.each do |local|
+          arrival_time = local[:arrival] ? "すでに到達" : local[:arrival_time]&.strftime("%T")
+          @print << "#{local[:area_name]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{arrival_time} 警報: #{local[:warning]}\n" 
         end
       end
 
-      return str
+      @print.freeze
+      return @print.dup
     end
 
     Attributes = [
@@ -107,7 +112,7 @@ module EEW
     end
 
     def inspect
-      "#<EEWParser:#{id} (第#{number}報) #{epicenter} #{seismic_intensity}>"
+      "#<EEWParser:#{id} (第#{number}報) #{epicenter} 震度#{seismic_intensity}>"
     end
 
     def ==(other)
@@ -189,6 +194,8 @@ module EEW
     # 電文の発表時刻のTimeオブジェクトを返します。
     def report_time
       Time.local("20" + @fastcast[9, 2], @fastcast[11, 2], @fastcast[13, 2], @fastcast[15, 2], @fastcast[17, 2], @fastcast[19, 2])
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です (発表時刻: #{@fastcast[9, 12]})"
     end
 
     # 電文がこの電文を含め何通あるか(Integer)
@@ -214,6 +221,8 @@ module EEW
     # 地震発生時刻もしくは地震検知時刻のTimeオブジェクトを返します。
     def earthquake_time
       Time.local("20" + @fastcast[26, 2], @fastcast[28, 2], @fastcast[30, 2], @fastcast[32, 2], @fastcast[34, 2], @fastcast[36, 2])
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です (地震発生時刻: #{@fastcast[26, 12]})"
     end
     
     # 地震識別番号(String)
@@ -226,7 +235,7 @@ module EEW
     end
 
     def __id__
-      id + number.to_s
+      (id * 10) + number
     end
 
     # 発表状況(訂正等)の指示
@@ -247,6 +256,12 @@ module EEW
       else
         raise Error, "電文の形式が不正です"     
       end
+    end
+
+    # 発表状況と訓練識別が通常かどうか
+    def normal?
+      return true if @fastcast[59] == "0" && @fastcast[6, 2] == "00"
+      return false
     end
 
     # 第1報であればtrueを、そうでなければfalseを返します。
@@ -272,7 +287,7 @@ module EEW
       number = @fastcast[60, 2]
       return Integer(number, 10)
     rescue ArgumentError
-      raise Error, "電文の形式が不正です(高度利用者向け緊急地震速報の番号)"
+      raise Error, "電文の形式が不正です(高度利用者向け緊急地震速報の番号: #{number})"
     end
 
     alias :revision :number
@@ -282,10 +297,8 @@ module EEW
       code = @fastcast[86, 3]
       code = Integer(code, 10)
       EpicenterCode.fetch(code)
-    rescue KeyError
+    rescue ArgumentError, KeyError
       raise Error, "電文の形式が不正です(震央地名コード: #{code})"
-    rescue ArgumentError
-      raise Error, "電文の形式が不正です(震央の名称)"
     end
 
     # 震央の位置
@@ -294,7 +307,7 @@ module EEW
       if position == "//// /////"
         "不明又は未設定"
       else
-        raise Error, "電文の形式が不正です(震央の位置)" unless position.match(/N\d{3} E\d{4}/)
+        raise Error, "電文の形式が不正です(震央の位置)" unless position.match(/(?:N|S)\d{3} (?:E|W)\d{4}/)
         position.insert(3, ".").insert(10, ".")
       end
     end
@@ -325,32 +338,24 @@ module EEW
       raise Error, "電文の形式が不正です(マグニチュード)"
     end
 
+    SeismicIntensity = {
+      "//" => "不明又は未設定",
+      "01" => "1",
+      "02" => "2",
+      "03" => "3",
+      "04" => "4",
+      "5-" => "5弱",
+      "5+" => "5強",
+      "6-" => "6弱",
+      "6+" => "6強",
+      "07" => "7"
+    }.freeze
+
     # 電文フォーマットの震度を文字列に変換
     def to_seismic_intensity(str)
-      case str
-      when "//"
-        "不明又は未設定"
-      when "01"
-        "1"
-      when "02"
-        "2"
-      when "03"
-        "3"
-      when "04"
-        "4"
-      when "5-"
-        "5弱"
-      when "5+"
-        "5強"
-      when "6-"
-        "6弱"
-      when "6+"
-        "6強"
-      when "07"
-        "7"
-      else
-        raise Error, "電文の形式が不正です(震度)"
-      end
+      SeismicIntensity.fetch(str)
+    rescue KeyError
+      raise Error, "電文の形式が不正です(震度: #{str})"
     end
 
     # 最大予測震度
@@ -358,60 +363,31 @@ module EEW
       to_seismic_intensity(@fastcast[108, 2]) 
     end
 
+    OriginProbability = {
+      "1" => "P波/S波レベル越え、またはIPF法(1点) または仮定震源要素の場合",
+      "2" => "IPF法(2点)",
+      "3" => "IPF法(3点/4点)",
+      "4" => "IPF法(5点)",
+      "5" => "防災科研システム(4点以下、または精度情報なし)[防災科研Hi-netデータ]",
+      "6" => "防災科研システム(5点以上)[防災科研Hi-netデータ]",
+      "7" => "EPOS(海域[観測網外])",
+      "8" => "EPOS(内陸[観測網内])",
+      "9" => "予備",
+      "/" =>"不明又は未設定"
+    }.freeze
+
     # 震央の確からしさ
     def probability_of_position
-      case @fastcast[113]
-      when "1"
-        "P波/S波レベル越え、またはテリトリー法(1点)[気象庁データ]"
-      when "2"
-        "テリトリー法(2点)[気象庁データ]"
-      when "3"
-        "グリッドサーチ法(3点/4点)[気象庁データ]"
-      when "4"
-        "グリッドサーチ法(5点)[気象庁データ]"
-      when "5"
-        "防災科研システム(4点以下、または精度情報なし)[防災科学技術研究所データ]"
-      when "6"
-        "防災科研システム(5点以上)[防災科学技術研究所データ]"
-      when "7"
-        "EPOS(海域[観測網外])[気象庁データ]"
-      when "8"
-        "EPOS(内陸[観測網内])[気象庁データ]"
-      when "9"
-        "予備"
-      when "/"
-        "不明又は未設定"
-      else
-        raise Error, "電文の形式が不正です(震央の確からしさ)"
-      end    
+      OriginProbability.fetch(@fastcast[113])
+    rescue KeyError
+      raise Error, "電文の形式が不正です(震央の確からしさ)"
     end
 
     # 震源の深さの確からしさ
     def probability_of_depth
-      case @fastcast[114]
-      when "1"
-        "P波/S波レベル越え、またはテリトリー法(1点)[気象庁データ]"
-      when "2"
-        "テリトリー法(2点)[気象庁データ]"
-      when "3"
-        "グリッドサーチ法(3点/4点)[気象庁データ]"
-      when "4"
-        "グリッドサーチ法(5点)[気象庁データ]"
-      when "5"
-        "防災科研システム(4点以下、または精度情報なし)[防災科学技術研究所データ]"
-      when "6"
-        "防災科研システム(5点以上)[防災科学技術研究所データ]"
-      when "7"
-        "EPOS(海域[観測網外])[気象庁データ]"
-      when "8"
-        "EPOS(内陸[観測網内])[気象庁データ]"
-      when "9"
-        "予備"
-      when "/", "0"
-        "不明又は未設定"
-      else
-        raise Error, "電文の形式が不正です(震源の深さの確からしさ)"
-      end 
+      OriginProbability.fetch(@fastcast[114])
+    rescue KeyError
+      raise Error, "電文の形式が不正です(震央の確からしさ)"
     end
 
     # マグニチュードの確からしさ
@@ -420,19 +396,19 @@ module EEW
       when "1"
         "未定義"
       when "2"
-        "防災科研システム[防災科学技術研究所データ]"
+        "防災科研システム[防災科研Hi-netデータ]"
       when "3"
-        "全点P相(最大5点)[気象庁データ]"
+        "全点P相"
       when "4"
-        "P相/全相混在[気象庁データ]"
+        "P相/全相混在"
       when "5"
-        "全点全相(最大5点)[気象庁データ]"
+        "全点全相"
       when "6"
-        "EPOS[気象庁データ]"
+        "EPOS"
       when "7"
         "未定義"
       when "8"
-        "P波/S波レベル越え[気象庁データ]"
+        "P波/S波レベル越え または仮定震源要素の場合"
       when "9"
         "予備"
       when "/", "0"
@@ -442,40 +418,47 @@ module EEW
       end
     end
 
-    # 震央の確からしさ（※気象庁の部内システムでの利用）
-    def probability_of_position_jma
+    # マグニチュード使用観測点（※気象庁の部内システムでの利用）
+    def observation_points_of_magnitude
       case @fastcast[116]
       when "1"
-        "P波/S波レベル越え又はテリトリー法(1点)[気象庁データ]"
+        "1点、P波/S波レベル超え、または仮定震源要素"
       when "2"
-        "テリトリー法(2点)[気象庁データ]"
+        "2点"
       when "3"
-        "グリッドサーチ法(3点/4点)[気象庁データ]"
+        "3点"
       when "4"
-        "グリッドサーチ法(5点)[気象庁データ]"
+        "4点"
+      when "5"
+        "5点以上"
       when "/"
         "不明又は未設定"
-      when "5".."9", "0"
+      when "6".."9", "0"
         "未定義"
       else
-        raise Error, "電文の形式が不正です(震央の確からしさ[気象庁の部内システムでの利用])"
+        raise Error, "電文の形式が不正です(マグニチュード使用観測点[気象庁の部内システムでの利用])"
       end
     end
+
+    # 後方互換性のため
+    alias probability_of_position_jma observation_points_of_magnitude
 
     # 震源の深さの確からしさ（※気象庁の部内システムでの利用）
     def probability_of_depth_jma
       case @fastcast[117]
       when "1"
-        "P波/S波レベル越え又はテリトリー法(1点)[気象庁データ]"
+        "P波/S波レベル越え、IPF法(1点)、または仮定震源要素"
       when "2"
-        "テリトリー法(2点)[気象庁データ]"
+        "IPF法(2点)"
       when "3"
-        "グリッドサーチ法(3点/4点)[気象庁データ]"
+        "IPF法(3点/4点)"
       when "4"
-        "グリッドサーチ法(5点)[気象庁データ]"
+        "IPF法(5点以上)"
+      when "9"
+        "震源とマグニチュードに基づく震度予測手法の精度が最終報相当"
       when "/"
         "不明又は未設定"
-      when "5".."9", "0"
+      when "5".."8", "0"
         "未定義"
       else
         raise Error, "電文の形式が不正です(震源の深さの確からしさ[気象庁の部内システムでの利用])"
@@ -505,6 +488,20 @@ module EEW
         false
       when "1"
         true
+      else
+        raise Error, "電文の形式が不正です(警報の判別)"
+      end
+    end
+
+    # 予測手法
+    def warning?
+      case @fastcast[123]
+      when "9"
+        "震源とマグニチュードによる震度推定手法において震源要素が推定できず、PLUM 法による震度予測のみが有効である場合"
+      when "0".."8"
+        "未定義"
+      when "/"
+        "不明又は未設定"
       else
         raise Error, "電文の形式が不正です(警報の判別)"
       end
@@ -551,9 +548,11 @@ module EEW
         "M及び震源位置が変化したため"
       when "4"
         "震源の深さが変化したため"
+      when "9"
+        "PLUM 法による予測により変化したため"
       when "/"
         "不明又は未設定"
-      when "5".."9"
+      when "5".."8"
         "未定義"
       else
         raise Error, "電文の形式が不正です(最大予測震度の変化の理由)"
@@ -577,8 +576,10 @@ module EEW
     #   :warning 警報を含んでいればtrue、含んでいなければfalse、電文にこの項目が設定されていなければnil
     #   :arrival 既に到達していればtrue、そうでなければfalse、電文にこの項目が設定されていなければnil
     def ebi
-      data = []
-      return data unless @fastcast[135, 3] == "EBI"
+      return [] unless has_ebi?
+      return @ebi.dup if @ebi
+
+      @ebi = []
       i = 139
       while i + 20 < @fastcast.bytesize
         local = {}
@@ -617,10 +618,11 @@ module EEW
         else
           raise Error, "電文の形式が不正でです(主要動の到達予測状況[EBI])"
         end
-        data << local
+        @ebi << local
         i += 20
       end
-      data
+      @ebi.freeze
+      return @ebi.dup
     end
   end
 end
@@ -677,4 +679,7 @@ FC
     puts "地域コード: #{local[:area_code]} 地域名: #{local[:area_name]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{local[:arrival_time]}"
     puts "警報を含むかどうか: #{local[:warning]} 既に到達しているかどうか: #{local[:arrival]}"
   end
+
+  puts fc.print
+  p EEW::AreaCode.values.max_by(&:size).size
 end
