@@ -4,8 +4,7 @@ require_relative "epicenter_code"
 require_relative "area_code"
 
 # 緊急地震速報パーサ
-# Author:: Glass_saga
-# License:: NYSL Version 0.9982
+# Author:: mmasaki
 #
 # 高度利用者向け緊急地震速報コード電文フォーマットを扱う為のライブラリです。
 # http://eew.mizar.jp/excodeformat を元に作成しました。
@@ -30,14 +29,19 @@ module EEW
       raise ArgumentError unless str.is_a?(String)
       @fastcast = str.dup
       @fastcast.freeze
-      raise Error, "電文の形式が不正です" if @fastcast.size < 135
+      raise Error, "電文の形式が不正です" if @fastcast.bytesize < 135
     end
 
     attr_reader :fastcast
 
     # initializeに与えられた電文を返します。
     def to_s
-      @fastcast
+      @fastcast.dup
+    end
+
+    # 電文のサイズを返します。
+    def size
+      @fastcast.bytesize
     end
 
     # 緊急地震速報の内容をテキストで出力します。
@@ -94,8 +98,16 @@ module EEW
       return hash
     end
 
+    # 正しい電文であるかを返します
+    def verify
+      Attributes.each do |attribute|
+        __send__(attribute)
+      end
+      return true
+    end
+
     def inspect
-      "#<EEWParser:#{id}>"
+      "#<EEWParser:#{id} (第#{number}報) #{epicenter} #{seismic_intensity}>"
     end
 
     def ==(other)
@@ -103,7 +115,7 @@ module EEW
     end
 
     def <=>(other)
-      Integer(id) <=> Integer(id)
+      __id__ <=> other.__id__
     end
 
     # 電文種別コード
@@ -162,6 +174,18 @@ module EEW
       end
     end
 
+    # 訓練かどうか
+    def drill?
+      case @fastcast[6, 2]
+      when "00", "10", "20"
+        return false
+      when "01", "11", "30"
+        return true
+      else
+        raise Error, "電文の形式が不正です(識別符)"
+      end
+    end
+
     # 電文の発表時刻のTimeオブジェクトを返します。
     def report_time
       Time.local("20" + @fastcast[9, 2], @fastcast[11, 2], @fastcast[13, 2], @fastcast[15, 2], @fastcast[17, 2], @fastcast[19, 2])
@@ -170,8 +194,9 @@ module EEW
     # 電文がこの電文を含め何通あるか(Integer)
     def number_of_telegram
       number_of_telegram = @fastcast[23]
-      raise Error, "電文の形式が不正です" if number_of_telegram =~ /[^\d]/
-      number_of_telegram.to_i
+      return Integer(number_of_telegram, 10)
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です"
     end
 
     # コードが続くかどうか
@@ -194,8 +219,14 @@ module EEW
     # 地震識別番号(String)
     def id
       id = @fastcast[41, 14]
-      raise Error, "電文の形式が不正です(地震識別番号)" if id =~ /[^\d]/
-      id
+      Integer(id, 10) # verify
+      return id
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です(地震識別番号: #{id})"
+    end
+
+    def __id__
+      id + number.to_s
     end
 
     # 発表状況(訂正等)の指示
@@ -218,6 +249,12 @@ module EEW
       end
     end
 
+    # 第1報であればtrueを、そうでなければfalseを返します。
+    def first? 
+      return true if self.number == 1
+      return false
+    end
+
     # 最終報であればtrueを、そうでなければfalseを返します。
     def final?
       case @fastcast[59]
@@ -233,17 +270,22 @@ module EEW
     # 発表する高度利用者向け緊急地震速報の番号(地震単位での通番)(Integer)
     def number
       number = @fastcast[60, 2]
-      raise Error, "電文の形式が不正です(高度利用者向け緊急地震速報の番号)" if number =~ /[^\d]/
-      number.to_i
+      return Integer(number, 10)
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です(高度利用者向け緊急地震速報の番号)"
     end
 
     alias :revision :number
 
     # 震央の名称
     def epicenter
-      key = @fastcast[86, 3]
-      raise Error, "電文の形式が不正です(震央の名称)" if key =~ /[^\d]/
-      EpicenterCode[key.to_i]
+      code = @fastcast[86, 3]
+      code = Integer(code, 10)
+      EpicenterCode.fetch(code)
+    rescue KeyError
+      raise Error, "電文の形式が不正です(震央地名コード: #{code})"
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です(震央の名称)"
     end
 
     # 震央の位置
@@ -252,7 +294,7 @@ module EEW
       if position == "//// /////"
         "不明又は未設定"
       else
-        raise Error, "電文の形式が不正です(震央の位置)" if position =~ /[^\d|\s|N|E]/
+        raise Error, "電文の形式が不正です(震央の位置)" unless position.match(/N\d{3} E\d{4}/)
         position.insert(3, ".").insert(10, ".")
       end
     end
@@ -261,11 +303,12 @@ module EEW
     def depth
       depth = @fastcast[101, 3]
       if depth == "///"
-        "不明又は未設定"
+        return "不明又は未設定"
       else
-        raise Error, "電文の形式が不正です(震源の深さ)" if depth =~ /[^\d]/
-        depth.to_i
+        return Integer(depth, 10)
       end
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です(震源の深さ)"
     end
 
     # マグニチュード
@@ -274,11 +317,12 @@ module EEW
     def magnitude
       magnitude = @fastcast[105, 2]
       if magnitude == "//"
-        "不明又は未設定"
+        return "不明又は未設定"
       else
-        raise Error, "電文の形式が不正です(マグニチュード)" if magnitude =~ /[^\d]/
-        (magnitude[0] + "." + magnitude[1]).to_f
+        return Float(magnitude[0] + "." + magnitude[1])
       end
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です(マグニチュード)"
     end
 
     # 電文フォーマットの震度を文字列に変換
@@ -312,8 +356,6 @@ module EEW
     # 最大予測震度
     def seismic_intensity
       to_seismic_intensity(@fastcast[108, 2]) 
-    rescue Error
-      raise Error, "電文の形式が不正です(最大予測震度)" 
     end
 
     # 震央の確からしさ
@@ -486,6 +528,16 @@ module EEW
       end
     end
 
+    # 最大予測震度に変化があったかどうか
+    def changed?
+      case @fastcast[129]
+      when "0", "3".."9", "/"
+        return false
+      when "1", "2"
+        return true
+      end
+    end
+
     # 最大予測震度の変化の理由
     def reason_of_change
       case @fastcast[130]
@@ -508,6 +560,15 @@ module EEW
       end
     end
 
+    # EBIを含むかどうか
+    def has_ebi?
+      if @fastcast[135, 3] == "EBI"
+        return true
+      else
+        return false
+      end
+    end
+
     # 地域毎の警報の判別、最大予測震度及び主要動到達予測時刻
     #   EBIがあればHashを格納したArrayを、なければ空のArrayを返します。Hashに格納されるkeyとvalueはそれぞれ次のようになっています。
     #   :area_name 地域名称
@@ -519,7 +580,7 @@ module EEW
       data = []
       return data unless @fastcast[135, 3] == "EBI"
       i = 139
-      while i + 20 < @fastcast.size
+      while i + 20 < @fastcast.bytesize
         local = {}
         local[:area_code] = @fastcast[i, 3].to_i
         local[:area_name] = AreaCode[local[:area_code]] # 地域名称

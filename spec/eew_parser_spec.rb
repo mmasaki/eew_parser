@@ -21,13 +21,23 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
     EEW::Parser.new(fastcast)
   end
 
+  let(:different_id) do
+    _fastcast = fastcast.dup
+    _fastcast[61] = "6" # 第6報にセット
+    EEW::Parser.new(_fastcast)
+  end
+
   subject do
     EEW::Parser.new(fastcast)
   end
 
   describe "#==" do
-    it "同じ地震IDであればtrue" do
+    it "同じ地震IDと第n報目であればtrue" do
       expect(subject).to eq(same_id)
+    end
+
+    it "同じ地震IDでも第n報目かが異なればfalse" do
+      expect(subject).not_to eq(different_id)
     end
   end
 
@@ -36,6 +46,8 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
   its(:from) { is_expected.to eq("東京") }
 
   its(:drill_type) { is_expected.to eq("通常") }
+
+  it { is_expected.not_to be_drill }
 
   describe "#report_time" do
     let(:report_time) { Time.parse("2011-04-15 23:34:53 +0900") }
@@ -54,6 +66,8 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
   its(:id) { is_expected.to eq("20110415233435") }
 
   its(:status) { is_expected.to eq("通常発表") }
+
+  it { is_expected.not_to be_first }
 
   it { is_expected.not_to be_final }
 
@@ -84,6 +98,8 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
   it { is_expected.to be_warning }
 
   its(:change) { is_expected.to eq("最大予測震度が1.0以上大きくなった") }
+
+  it { is_expected.to be_changed }
 
   its(:reason_of_change) { is_expected.to eq("M及び震源位置が変化したため") }
 

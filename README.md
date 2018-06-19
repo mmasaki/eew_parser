@@ -1,6 +1,6 @@
 # EEW::Parser
 
-[![Build Status](https://travis-ci.org/Glasssaga/eew_parser.svg?branch=master)](https://travis-ci.org/Glasssaga/eew_parser)
+[![Build Status](https://travis-ci.org/mmasaki/eew_parser.svg?branch=master)](https://travis-ci.org/mmasaki/eew_parser)
 
 高度利用者向け緊急地震速報コード電文フォーマットを扱う為のライブラリです。
 http://eew.mizar.jp/excodeformat を元に作成しました。
@@ -30,5 +30,5 @@ gem install eew_parser
 
 ## Copyright
 
-Copyright (c) 2014 Masaki Matsushita. See LICENSE.txt for
+Copyright (c) 2018 Masaki Matsushita. See LICENSE.txt for
 further details.
