@@ -72,6 +72,7 @@ module EEW
 震源の深さの確からしさ(気象庁の部内システムでの利用): #{probability_of_depth_jma}
 震央位置の海陸判定: #{land_or_sea}
 警報を含む内容かどうか: #{warning?}
+予測手法: #{prediction_method}
 最大予測震度の変化: #{change}
 最大予測震度の変化の理由: #{reason_of_change}
       EOS
@@ -650,7 +651,7 @@ EOS
   p fc.to_hash
   
   puts <<FC
-電文種別コード: #{fc.type}
+電文種別: #{fc.type}
 発信官署: #{fc.from}
 訓練等の識別符: #{fc.drill_type}
 電文の発表時刻: #{fc.report_time}
@@ -660,7 +661,7 @@ EOS
 地震識別番号: #{fc.id}
 発表状況(訂正等)の指示: #{fc.status}
 発表する高度利用者向け緊急地震速報の番号(地震単位での通番): #{fc.number}
-震央地名コード: #{fc.epicenter}
+震央地名: #{fc.epicenter}
 震央の位置: #{fc.position}
 震源の深さ(単位 km)(不明・未設定時,キャンセル時:///): #{fc.depth}
 マグニチュード(不明・未設定時、キャンセル時:///): #{fc.magnitude}
@@ -672,6 +673,7 @@ EOS
 震源の深さの確からしさ(気象庁の部内システムでの利用): #{fc.probability_of_depth_jma}
 震央位置の海陸判定: #{fc.land_or_sea}
 警報を含む内容かどうか: #{fc.warning?}
+予測手法: #{fc.prediction_method}
 最大予測震度の変化: #{fc.change}
 最大予測震度の変化の理由: #{fc.reason_of_change}
 FC
