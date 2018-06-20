@@ -494,7 +494,7 @@ module EEW
     end
 
     # 予測手法
-    def warning?
+    def prediction_method 
       case @fastcast[123]
       when "9"
         "震源とマグニチュードによる震度推定手法において震源要素が推定できず、PLUM 法による震度予測のみが有効である場合"

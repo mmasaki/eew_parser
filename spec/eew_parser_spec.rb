@@ -101,6 +101,8 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
 
   it { is_expected.to be_warning }
 
+  its(:prediction_method) { is_expected.to eq("不明又は未設定") }
+
   its(:change) { is_expected.to eq("最大予測震度が1.0以上大きくなった") }
 
   it { is_expected.to be_changed }
