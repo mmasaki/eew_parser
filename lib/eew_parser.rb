@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+require "time"
+
 require_relative "epicenter_code"
 require_relative "area_code"
 
@@ -30,10 +32,30 @@ module EEW
       @fastcast = str.dup
       @fastcast.force_encoding(Encoding::ASCII)
       @fastcast.freeze
-      raise Error, "電文の形式が不正です" if @fastcast.bytesize < 135
+      raise Error, "電文のサイズが不正です" if @fastcast.bytesize < 135
     end
 
     attr_reader :fastcast
+
+    def inspect
+      "#<EEWParser:#{id} (第#{number}報) #{epicenter} 震度#{seismic_intensity}>"
+    end
+
+    def ==(other)
+      @fastcast == other.fastcast
+    end
+
+    def <=>(other)
+      id + number <=> other.id + other.number
+    end
+
+    def eql?(other)
+      @fastcast.eql?(other.fastcast)
+    end
+
+    def hash
+      @fastcast.hash
+    end
 
     # initializeに与えられた電文を返します。
     def to_s
@@ -43,97 +65,6 @@ module EEW
     # 電文のサイズを返します。
     def size
       @fastcast.bytesize
-    end
-
-    # 緊急地震速報の内容をテキストで出力します。
-    def print
-      return @print.dup if @print
-
-      @print = <<-EOS
-緊急地震速報 (第#{number}報)
-電文種別: #{type}
-発信官署: #{from}
-訓練等の識別符: #{drill_type}
-電文の発表時刻: #{report_time.strftime("%F %T")}
-電文がこの電文を含め何通あるか: #{number_of_telegram}
-コードが続くかどうか: #{continue?}
-地震発生時刻もしくは地震検知時刻: #{earthquake_time.strftime("%F %T")}
-地震識別番号: #{id}
-発表状況(訂正等)の指示: #{status}
-発表する高度利用者向け緊急地震速報の番号(地震単位での通番): #{number}
-震央地名: #{epicenter}
-震央の位置: #{position}
-震源の深さ(単位 km)(不明・未設定時,キャンセル時:///): #{depth}
-マグニチュード(不明・未設定時、キャンセル時:///): #{magnitude}
-最大予測震度(不明・未設定時、キャンセル時://): #{seismic_intensity}
-震央の確からしさ: #{probability_of_position}
-震源の深さの確からしさ: #{probability_of_depth}
-マグニチュードの確からしさ: #{probability_of_magnitude}
-震央の確からしさ(気象庁の部内システムでの利用): #{probability_of_position_jma}
-震源の深さの確からしさ(気象庁の部内システムでの利用): #{probability_of_depth_jma}
-震央位置の海陸判定: #{land_or_sea}
-警報を含む内容かどうか: #{warning?}
-予測手法: #{prediction_method}
-最大予測震度の変化: #{change}
-最大予測震度の変化の理由: #{reason_of_change}
-      EOS
-
-      if has_ebi?
-        @print << "\n地域毎の警報の判別、最大予測震度及び主要動到達予測時刻(EBI):\n"
-        ebi.each do |local|
-          arrival_time = local[:arrival] ? "すでに到達" : local[:arrival_time]&.strftime("%T")
-          @print << "#{local[:area_name]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{arrival_time} 警報: #{local[:warning]}\n" 
-        end
-      end
-
-      @print.freeze
-      return @print.dup
-    end
-
-    Attributes = [
-      :type, :from, :drill_type, :report_time, :number_of_telegram, :continue?, :earthquake_time, :id, :status, :final?, :number, :epicenter, :position, :depth,
-      :magnitude, :seismic_intensity, :observation_points_of_magnitude, :probability_of_depth, :probability_of_magnitude, :probability_of_position, :probability_of_depth_jma,
-      :land_or_sea, :warning?, :prediction_method, :change, :reason_of_change, :ebi
-    ].freeze
-
-    # 電文を解析した結果をHashで返します。
-    def to_hash
-      unless @hash
-        @hash = {}
-        Attributes.each do |attribute|
-          @hash[attribute] = __send__(attribute)
-        end
-        @hash.freeze
-      end
-      return @hash.dup
-    end
-
-    # 正しい電文であるかを返します
-    def valid?
-      unless @valid
-        begin
-          Attributes.each do |attribute|
-            __send__(attribute)
-          end
-        rescue Error
-          @valid = false
-        else
-          @valid = true
-        end
-      end
-      return @valid
-    end
-
-    def inspect
-      "#<EEWParser:#{id} (第#{number}報) #{epicenter} 震度#{seismic_intensity}>"
-    end
-
-    def ==(other)
-      fastcast == other.fastcast
-    end
-
-    def <=>(other)
-      __id__ <=> other.__id__
     end
 
     # 電文種別コード
@@ -212,7 +143,7 @@ module EEW
 
     # 電文の発表時刻のTimeオブジェクトを返します。
     def report_time
-      Time.local("20" + @fastcast[9, 2], @fastcast[11, 2], @fastcast[13, 2], @fastcast[15, 2], @fastcast[17, 2], @fastcast[19, 2])
+      Time.strptime(@fastcast[9, 12], "%y%m%d%H%M%S")
     rescue ArgumentError
       raise Error, "電文の形式が不正です (発表時刻: #{@fastcast[9, 12]})"
     end
@@ -239,23 +170,19 @@ module EEW
 
     # 地震発生時刻もしくは地震検知時刻のTimeオブジェクトを返します。
     def earthquake_time
-      Time.local("20" + @fastcast[26, 2], @fastcast[28, 2], @fastcast[30, 2], @fastcast[32, 2], @fastcast[34, 2], @fastcast[36, 2])
+      Time.strptime(@fastcast[26, 12], "%y%m%d%H%M%S")
     rescue ArgumentError
       raise Error, "電文の形式が不正です (地震発生時刻: #{@fastcast[26, 12]})"
     end
     
     # 地震識別番号(String)
     def id
-      id = @fastcast[41, 14]
-      Integer(id, 10) # verify
-      return id
+      return @id if @id
+      @id = @fastcast[41, 14]
+      Integer(@id, 10) # verify
+      return @id
     rescue ArgumentError
       raise Error, "電文の形式が不正です(地震識別番号: #{id})"
-    end
-
-    # 地震識別番号 + 通番
-    def __id__
-      (id * 10) + number
     end
 
     # 発表状況(訂正等)の指示
@@ -370,6 +297,7 @@ module EEW
       "6+" => "6強",
       "07" => "7"
     }.freeze
+    private_constant :SeismicIntensity
 
     # 最大予測震度
     def seismic_intensity
@@ -388,6 +316,7 @@ module EEW
       "9" => "予備",
       "/" =>"不明又は未設定"
     }.freeze
+    private_constant :OriginProbability
 
     # 震央の確からしさ
     def probability_of_position
@@ -453,7 +382,7 @@ module EEW
       end
     end
 
-    # 後方互換性のため
+    # 互換性のため
     alias probability_of_position_jma observation_points_of_magnitude
 
     # 震源の深さの確からしさ（※気象庁の部内システムでの利用）
@@ -610,6 +539,85 @@ module EEW
       return @ebi.dup
     end
 
+    Attributes = [
+      :type, :from, :drill_type, :report_time, :number_of_telegram, :continue?, :earthquake_time, :id, :status, :final?, :number, :epicenter, :position, :depth,
+      :magnitude, :seismic_intensity, :observation_points_of_magnitude, :probability_of_depth, :probability_of_magnitude, :probability_of_position, :probability_of_depth_jma,
+      :land_or_sea, :warning?, :prediction_method, :change, :reason_of_change, :ebi
+    ].freeze
+    private_constant :Attributes
+
+    # 電文を解析した結果をHashで返します。
+    def to_hash
+      unless @hash
+        @hash = {}
+        Attributes.each do |attribute|
+          @hash[attribute] = __send__(attribute)
+        end
+        @hash.freeze
+      end
+      return @hash.dup
+    end
+
+    # 正しい電文であるかを返します
+    def valid?
+      unless @valid
+        begin
+          Attributes.each do |attribute|
+            __send__(attribute)
+          end
+        rescue Error
+          @valid = false
+        else
+          @valid = true
+        end
+      end
+      return @valid
+    end
+
+    # 緊急地震速報の内容をテキストで出力します。
+    def print
+      return @print.dup if @print
+
+      @print = <<-EOS
+緊急地震速報 (第#{number}報)
+電文種別: #{type}
+発信官署: #{from}
+訓練等の識別符: #{drill_type}
+電文の発表時刻: #{report_time.strftime("%F %T")}
+電文がこの電文を含め何通あるか: #{number_of_telegram}
+コードが続くかどうか: #{continue?}
+地震発生時刻もしくは地震検知時刻: #{earthquake_time.strftime("%F %T")}
+地震識別番号: #{id}
+発表状況(訂正等)の指示: #{status}
+発表する高度利用者向け緊急地震速報の番号(地震単位での通番): #{number}
+震央地名: #{epicenter}
+震央の位置: #{position}
+震源の深さ(単位 km)(不明・未設定時,キャンセル時:///): #{depth}
+マグニチュード(不明・未設定時、キャンセル時:///): #{magnitude}
+最大予測震度(不明・未設定時、キャンセル時://): #{seismic_intensity}
+震央の確からしさ: #{probability_of_position}
+震源の深さの確からしさ: #{probability_of_depth}
+マグニチュードの確からしさ: #{probability_of_magnitude}
+震源の深さの確からしさ(気象庁の部内システムでの利用): #{probability_of_depth_jma}
+震央位置の海陸判定: #{land_or_sea}
+警報を含む内容かどうか: #{warning?}
+予測手法: #{prediction_method}
+最大予測震度の変化: #{change}
+最大予測震度の変化の理由: #{reason_of_change}
+      EOS
+
+      if has_ebi?
+        @print << "\n地域毎の警報の判別、最大予測震度及び主要動到達予測時刻(EBI):\n"
+        ebi.each do |local|
+          arrival_time = local[:arrival] ? "すでに到達" : local[:arrival_time]&.strftime("%T")
+          @print << "#{local[:area_name].ljust(10)} 最大予測震度: #{local[:intensity].ljust(2)} 予想到達時刻: #{arrival_time} 警報: #{local[:warning]}\n" 
+        end
+      end
+
+      @print.freeze
+      return @print.dup
+    end
+
     private
 
     # 電文フォーマットの震度を文字列に変換
@@ -639,8 +647,9 @@ module EEW
 
     # 予想到達時刻
     def ebi_arrival_time(local_str)
-      return nil if local_str[10, 6] == "//////"
-      return Time.local("20" + @fastcast[26, 2], @fastcast[28, 2], @fastcast[30, 2], local_str[10, 2], local_str[12, 2], local_str[14, 2])
+      arrival_time = local_str[10, 6]
+      return nil if arrival_time == "//////"
+      return Time.strptime(arrival_time, "%H%M%S")
     rescue ArgumentError
       raise Error, "電文の形式が不正です (EBI: 地震発生時刻)"
     end
@@ -672,8 +681,6 @@ module EEW
     end
   end
 end
-
-EEWParser = EEW::Parser
 
 if __FILE__ == $PROGRAM_NAME # テスト
   str = <<EOS #テスト用の電文(EBIを含む)
