@@ -1,4 +1,4 @@
-#encoding: utf-8
+# encoding: utf-8
 
 require_relative "epicenter_code"
 require_relative "area_code"
@@ -28,6 +28,7 @@ module EEW
     def initialize(str)
       raise ArgumentError unless str.is_a?(String)
       @fastcast = str.dup
+      @fastcast.force_encoding(Encoding::ASCII)
       @fastcast.freeze
       raise Error, "電文の形式が不正です" if @fastcast.bytesize < 135
     end
@@ -91,25 +92,36 @@ module EEW
 
     Attributes = [
       :type, :from, :drill_type, :report_time, :number_of_telegram, :continue?, :earthquake_time, :id, :status, :final?, :number, :epicenter, :position, :depth,
-      :magnitude, :seismic_intensity, :probability_of_position_jma, :probability_of_depth, :probability_of_magnitude, :probability_of_position, :probability_of_depth_jma,
-      :land_or_sea, :warning?, :change, :reason_of_change, :ebi
+      :magnitude, :seismic_intensity, :observation_points_of_magnitude, :probability_of_depth, :probability_of_magnitude, :probability_of_position, :probability_of_depth_jma,
+      :land_or_sea, :warning?, :prediction_method, :change, :reason_of_change, :ebi
     ].freeze
 
     # 電文を解析した結果をHashで返します。
     def to_hash
-      hash = {}
-      Attributes.each do |attribute|
-        hash[attribute] = __send__(attribute)
+      unless @hash
+        @hash = {}
+        Attributes.each do |attribute|
+          @hash[attribute] = __send__(attribute)
+        end
+        @hash.freeze
       end
-      return hash
+      return @hash.dup
     end
 
     # 正しい電文であるかを返します
-    def verify
-      Attributes.each do |attribute|
-        __send__(attribute)
+    def valid?
+      unless @valid
+        begin
+          Attributes.each do |attribute|
+            __send__(attribute)
+          end
+        rescue Error
+          @valid = false
+        else
+          @valid = true
+        end
       end
-      return true
+      return @valid
     end
 
     def inspect
@@ -117,7 +129,7 @@ module EEW
     end
 
     def ==(other)
-      fastcast == other.fastcast  
+      fastcast == other.fastcast
     end
 
     def <=>(other)
@@ -138,6 +150,12 @@ module EEW
       else
         raise Error, "電文の形式が不正です(電文種別コード)"
       end
+    end
+
+    # キャンセル報かどうか
+    def canceled?
+      return true if @fastcast[0, 2] == "39"
+      return false
     end
 
     # 発信官署
@@ -235,6 +253,7 @@ module EEW
       raise Error, "電文の形式が不正です(地震識別番号: #{id})"
     end
 
+    # 地震識別番号 + 通番
     def __id__
       (id * 10) + number
     end
@@ -261,7 +280,7 @@ module EEW
 
     # 発表状況と訓練識別が通常かどうか
     def normal?
-      return true if @fastcast[59] == "0" && @fastcast[6, 2] == "00"
+      return true if (@fastcast[59] == "0" || @fastcast[59] == 9) && @fastcast[6, 2] == "00"
       return false
     end
 
@@ -351,13 +370,6 @@ module EEW
       "6+" => "6強",
       "07" => "7"
     }.freeze
-
-    # 電文フォーマットの震度を文字列に変換
-    def to_seismic_intensity(str)
-      SeismicIntensity.fetch(str)
-    rescue KeyError
-      raise Error, "電文の形式が不正です(震度: #{str})"
-    end
 
     # 最大予測震度
     def seismic_intensity
@@ -562,11 +574,8 @@ module EEW
 
     # EBIを含むかどうか
     def has_ebi?
-      if @fastcast[135, 3] == "EBI"
-        return true
-      else
-        return false
-      end
+      return true if @fastcast[135, 3] == "EBI"
+      return false
     end
 
     # 地域毎の警報の判別、最大予測震度及び主要動到達予測時刻
@@ -583,47 +592,83 @@ module EEW
       @ebi = []
       i = 139
       while i + 20 < @fastcast.bytesize
-        local = {}
-        local[:area_code] = @fastcast[i, 3].to_i
-        local[:area_name] = AreaCode[local[:area_code]] # 地域名称
-        raise Error, "電文の形式が不正でです(地域名称[EBI])" unless local[:area_name]
-        if @fastcast[i+7, 2] == "//"
-          local[:intensity] = "#{to_seismic_intensity(@fastcast[i+5, 2])}以上" # 最大予測震度
-        elsif @fastcast[i+5, 2] == @fastcast[i+7, 2]
-          local[:intensity] = "#{to_seismic_intensity(@fastcast[i+5, 2])}"
-        else
-          local[:intensity] = "#{to_seismic_intensity(@fastcast[i+7, 2])}から#{to_seismic_intensity(@fastcast[i+5, 2])}"
-        end
-        if @fastcast[i+10, 6] == "//////"
-          local[:arrival_time] = nil # 予想到達時刻
-        else
-          local[:arrival_time] = Time.local("20" + @fastcast[26, 2], @fastcast[28, 2], @fastcast[30, 2], @fastcast[i+10, 2], @fastcast[i+12, 2], @fastcast[i+14, 2])
-        end
-        case @fastcast[i+17]
-        when "0"
-          local[:warning] = false # 警報を含むかどうか
-        when "1"
-          local[:warning] = true
-        when "/", "2".."9"
-          local[:warning] = nil
-        else
-          raise Error, "電文の形式が不正でです(警報の判別[EBI])"
-        end
-        case @fastcast[i+18]
-        when "0"
-          local[:arrival] = false # 既に到達しているかどうか
-        when "1"
-          local[:arrival] = true
-        when "/", "2".."9"
-          local[:arrival] = nil
-        else
-          raise Error, "電文の形式が不正でです(主要動の到達予測状況[EBI])"
-        end
-        @ebi << local
+        local_str = @fastcast[i, 20]
+        area_code = ebi_area_code(local_str)
+        local = {
+          area_code: area_code,
+          area_name: ebi_area_name(area_code),
+          intensity: ebi_intensity(local_str),
+          arrival_time: ebi_arrival_time(local_str),
+          warning: ebi_warning(local_str),
+          arrival: ebi_arrival(local_str)
+        }
+        local.freeze
+        @ebi.push(local)
         i += 20
       end
       @ebi.freeze
       return @ebi.dup
+    end
+
+    private
+
+    # 電文フォーマットの震度を文字列に変換
+    def to_seismic_intensity(str)
+      SeismicIntensity.fetch(str)
+    rescue KeyError
+      raise Error, "電文の形式が不正です(震度: #{str})"
+    end
+
+    def ebi_area_code(local_str)
+      return Integer(local_str[0, 3])
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です(EBI: 地域コード)"
+    end
+
+    def ebi_area_name(area_code)
+      return AreaCode.fetch(area_code)
+    rescue KeyError
+      raise Error, "電文の形式が不正です(EBI: 地域名称)" 
+    end
+
+    def ebi_intensity(local_str)
+      return to_seismic_intensity(local_str[5, 2]) + "以上" if local_str[7, 2] == "//" # 最大予測震度
+      return to_seismic_intensity(local_str[5, 2]) if local_str[5, 2] == local_str[7, 2]
+      return "#{to_seismic_intensity(local_str[7, 2])}から#{to_seismic_intensity(local_str[5, 2])}"
+    end
+
+    # 予想到達時刻
+    def ebi_arrival_time(local_str)
+      return nil if local_str[10, 6] == "//////"
+      return Time.local("20" + @fastcast[26, 2], @fastcast[28, 2], @fastcast[30, 2], local_str[10, 2], local_str[12, 2], local_str[14, 2])
+    rescue ArgumentError
+      raise Error, "電文の形式が不正です (EBI: 地震発生時刻)"
+    end
+
+    def ebi_warning(local_str)
+      case local_str[17]
+      when "0"
+        return false
+      when "1"
+        return true
+      when "/", "2".."9"
+        return nil
+      else
+        raise Error, "電文の形式が不正です(EBI: 警報の判別)"
+      end
+    end
+
+    def ebi_arrival(local_str)
+      case local_str[18]
+      when "0"
+        return false
+      when "1"
+        return true
+      when "/", "2".."9"
+        return nil
+      else
+        raise Error, "電文の形式が不正です(EBI: 主要動の到達予測状況)"
+      end
     end
   end
 end
@@ -647,41 +692,7 @@ EOS
   
   fc = EEW::Parser.new(str)
   p fc
-  p fc.fastcast
-  p fc.to_hash
-  
-  puts <<FC
-電文種別: #{fc.type}
-発信官署: #{fc.from}
-訓練等の識別符: #{fc.drill_type}
-電文の発表時刻: #{fc.report_time}
-電文がこの電文を含め何通あるか: #{fc.number_of_telegram}
-コードが続くかどうか: #{fc.continue?}
-地震発生時刻もしくは地震検知時刻: #{fc.earthquake_time}
-地震識別番号: #{fc.id}
-発表状況(訂正等)の指示: #{fc.status}
-発表する高度利用者向け緊急地震速報の番号(地震単位での通番): #{fc.number}
-震央地名: #{fc.epicenter}
-震央の位置: #{fc.position}
-震源の深さ(単位 km)(不明・未設定時,キャンセル時:///): #{fc.depth}
-マグニチュード(不明・未設定時、キャンセル時:///): #{fc.magnitude}
-最大予測震度(不明・未設定時、キャンセル時://): #{fc.seismic_intensity}
-震央の確からしさ: #{fc.probability_of_position}
-震源の深さの確からしさ: #{fc.probability_of_depth}
-マグニチュードの確からしさ: #{fc.probability_of_magnitude}
-震央の確からしさ(気象庁の部内システムでの利用): #{fc.probability_of_position_jma}
-震源の深さの確からしさ(気象庁の部内システムでの利用): #{fc.probability_of_depth_jma}
-震央位置の海陸判定: #{fc.land_or_sea}
-警報を含む内容かどうか: #{fc.warning?}
-予測手法: #{fc.prediction_method}
-最大予測震度の変化: #{fc.change}
-最大予測震度の変化の理由: #{fc.reason_of_change}
-FC
-  fc.ebi.each do |local|
-    puts "地域コード: #{local[:area_code]} 地域名: #{local[:area_name]} 最大予測震度: #{local[:intensity]} 予想到達時刻: #{local[:arrival_time]}"
-    puts "警報を含むかどうか: #{local[:warning]} 既に到達しているかどうか: #{local[:arrival]}"
-  end
-
+  puts fc.fastcast
+  pp fc.to_hash
   puts fc.print
-  p EEW::AreaCode.values.max_by(&:size).size
 end

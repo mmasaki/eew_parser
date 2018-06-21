@@ -43,6 +43,8 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
 
   its(:type) { is_expected.to eq("マグニチュード、最大予測震度及び主要動到達予測時刻の高度利用者向け緊急地震速報(グリッドサーチ法、EPOS自動処理手法)") }
 
+  it { is_expected.not_to be_canceled }
+
   its(:from) { is_expected.to eq("東京") }
 
   its(:drill_type) { is_expected.to eq("通常") }
@@ -99,7 +101,7 @@ EBI 251 S6+6- ////// 11 300 S5+5- ////// 11 250 S5+5- ////// 11
 
   its(:land_or_sea) { is_expected.to eq("陸域") }
 
-  it { is_expected.to be_warning }
+  its(:warning?) { is_expected.to be true }
 
   its(:prediction_method) { is_expected.to eq("不明又は未設定") }
 
@@ -167,7 +169,7 @@ ND20110415005001 NCN001 JD////////////// JN///
     it "can be verified" do
       expect {
         eew = EEW::Parser.new(invalid)
-        eew.verify
+        eew.valid?
       }.not_to raise_error
     end
   end

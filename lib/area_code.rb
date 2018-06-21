@@ -1,3 +1,6 @@
+# encoding: utf-8
+# frozen_string_literal: true
+
 module EEW
   # 地域コードをkey,地域名称をvalueとするHash
   AreaCode = {
