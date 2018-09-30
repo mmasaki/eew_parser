@@ -167,10 +167,11 @@ ND20110415005001 NCN001 JD////////////// JN///
     end
 
     it "can be verified" do
+      eew = nil
       expect {
         eew = EEW::Parser.new(invalid)
-        eew.valid?
       }.not_to raise_error
+      expect(eew.valid?).to be true
     end
   end
 
@@ -184,7 +185,24 @@ ND20110415005001 NCN001 JD////////////// JN///
       expect {
         eew = EEW::Parser.new(sw)
       }.not_to raise_error
+      expect(eew.valid?).to be true
       expect(eew.position).to eq("S35.0 W140.3")
+    end
+  end
+
+  context "キャンセル報" do
+    let(:canceled) do
+      "39 04 10 181001002707 C11\n181001002656\nND20181001002656 NCN002 JD////////////// JN///\n/// //// ///// /// // // RK///// RT///// RC/////\n9999="
+    end
+
+    it "can be verified" do
+      eew = nil
+      expect {
+        eew = EEW::Parser.new(canceled)
+        eew.to_hash
+      }.not_to raise_error
+      expect(eew.valid?).to be true
+      expect(eew.canceled?).to be true
     end
   end
 end

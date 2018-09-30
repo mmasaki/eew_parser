@@ -242,6 +242,7 @@ module EEW
     # 震央の名称
     def epicenter
       code = @fastcast[86, 3]
+      return "不明又は未設定" if code == "///"
       code = Integer(code, 10)
       EpicenterCode.fetch(code)
     rescue ArgumentError, KeyError
@@ -610,7 +611,7 @@ module EEW
         @print << "\n地域毎の警報の判別、最大予測震度及び主要動到達予測時刻(EBI):\n"
         ebi.each do |local|
           arrival_time = local[:arrival] ? "すでに到達" : local[:arrival_time]&.strftime("%T")
-          @print << "#{local[:area_name].ljust(10)} 最大予測震度: #{local[:intensity].ljust(2)} 予想到達時刻: #{arrival_time} 警報: #{local[:warning]}\n" 
+          @print << "#{local[:area_name].ljust(10, "　")} 最大予測震度: #{local[:intensity].ljust(6, "　")} 予想到達時刻: #{arrival_time} 警報: #{local[:warning]}\n"
         end
       end
 
