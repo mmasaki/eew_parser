@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name          = "eew_parser"
-  spec.version       = "0.2.3"
+  spec.version       = "0.2.4"
   spec.authors       = ["Masaki Matsushita"]
   spec.email         = ["glass.saga@gmail.com"]
   spec.summary       = %q{Parser for Earthquake Early Warning from JMA}
