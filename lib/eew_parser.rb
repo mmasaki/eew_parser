@@ -635,9 +635,7 @@ module EEW
     end
 
     def ebi_area_name(area_code)
-      return AreaCode.fetch(area_code)
-    rescue KeyError
-      raise Error, "電文の形式が不正です(EBI: 地域名称)" 
+      return AreaCode.fetch(area_code, "不明")
     end
 
     def ebi_intensity(local_str)
